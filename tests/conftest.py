@@ -10,6 +10,7 @@ import pytest
 from watari.config import Settings
 from watari.core.models import ChatDelta, ChatMessage, Usage
 from watari.core.session import SessionStore
+from watari.rag.models import RetrievedChunk
 
 
 class FakeProvider:
@@ -58,3 +59,26 @@ async def store(settings: Settings) -> AsyncIterator[SessionStore]:
 @pytest.fixture
 def fake_provider() -> FakeProvider:
     return FakeProvider()
+
+
+class FakeRetriever:
+    """A :class:`Retriever` that returns a fixed set of chunks."""
+
+    def __init__(self, chunks: list[RetrievedChunk]) -> None:
+        self.chunks = chunks
+
+    async def retrieve(self, query: str, *, top_k: int | None = None) -> list[RetrievedChunk]:
+        return self.chunks
+
+
+def make_chunks(n: int) -> list[RetrievedChunk]:
+    return [
+        RetrievedChunk(
+            chunk_id=i,
+            source_path=f"doc{i}.md",
+            heading_path=f"Section {i}",
+            chunk_index=i,
+            text=f"fact number {i}",
+        )
+        for i in range(1, n + 1)
+    ]

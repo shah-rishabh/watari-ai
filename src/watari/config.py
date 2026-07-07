@@ -67,6 +67,16 @@ class Settings(BaseSettings):
     max_context_tokens: int = Field(default=8192, ge=512)
     max_response_tokens: int = Field(default=1024, ge=1)
 
+    # --- RAG ---
+    # bge-small is 384-dim; keep this in sync if you change embed_model.
+    embed_dim: int = Field(default=384, ge=1)
+    chunk_target_tokens: int = Field(default=400, ge=32)
+    chunk_overlap_ratio: float = Field(default=0.15, ge=0.0, lt=1.0)
+    retrieval_top_k: int = Field(default=5, ge=1)
+    # Reciprocal Rank Fusion constant; 60 is the value from the original RRF
+    # paper and a robust default.
+    rrf_k: int = Field(default=60, ge=1)
+
     # --- Storage ---
     data_dir: Path = Field(default_factory=_default_data_dir)
 

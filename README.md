@@ -4,9 +4,9 @@ A **local-first LLM personal assistant** — your data never leaves your machine
 Built as a production-engineering exercise: rigorous evals, security hardening,
 observability, and CI are first-class, not afterthoughts.
 
-> **Status:** Phase 1 of 6 — streaming chat with a clean, typed, tested core.
-> RAG, agent/tool use, long-term memory, and the eval harness land in later
-> phases (see [PLAN.md](PLAN.md)).
+> **Status:** Phase 2 of 6 — streaming chat plus **RAG over personal documents
+> with hybrid retrieval and validated citations**. Agent/tool use, long-term
+> memory, and the eval harness land in later phases (see [PLAN.md](PLAN.md)).
 
 ## Why this exists
 
@@ -15,14 +15,17 @@ built around the engineering *around* the model: every capability claim is meant
 to carry a measured number from an eval harness, and the security posture is
 documented rather than assumed.
 
-## Architecture (Phase 1)
+## Architecture
 
 ```
                     ┌──────────────┐     ┌──────────────┐
-   CLI (typer+rich) │              │     │  SessionStore│  SQLite
-   ─────────────────▶  ChatService ├─────▶  (aiosqlite) │  ~/.watari/watari.db
-   FastAPI (SSE)    │              │     └──────────────┘
-   ─────────────────▶              │     ┌──────────────┐
+   CLI (typer+rich) │              │     │  SessionStore│  ┐
+   ─────────────────▶  ChatService ├─────▶  (aiosqlite) │  │  one SQLite file
+   FastAPI (SSE)    │              │     ├──────────────┤  ├─ ~/.watari/watari.db
+   ─────────────────▶              │     │  RagStore    │  │  (sessions + vectors)
+                    │              ├─────▶ vec0 + FTS5  │  ┘
+                    │              │     └──────────────┘
+                    │              │     ┌──────────────┐
                     │              ├─────▶ LLMProvider   │  OpenAI-compatible
                     └──────────────┘     │ (→ Ollama /v1)│  → llama.cpp/vLLM/…
                                          └──────────────┘
@@ -33,6 +36,38 @@ async iterator — the thin-adapter design in one picture. The `LLMProvider`
 Protocol is the swappable seam: laptop runs `qwen3.5:4b`, CI runs
 `qwen2.5:0.5b`, via configuration only. See
 [ADR-000](docs/adr/000-provider-abstraction.md).
+
+## RAG over your documents
+
+Ingest markdown and PDF files into a local store and ask grounded, cited
+questions — nothing leaves your machine.
+
+- **Hybrid retrieval:** every query runs *both* a semantic vector search
+  (sqlite-vec cosine KNN over `bge-small` embeddings) and a keyword search
+  (SQLite FTS5 BM25), fused with **Reciprocal Rank Fusion**. Semantic catches
+  paraphrases; BM25 catches exact terms (names, code symbols). See
+  [ADR-001](docs/adr/001-vector-store.md).
+- **Heading-aware chunking:** markdown is split on its heading structure, so each
+  chunk carries a heading trail (`Projects > Watari > Design`) used in citations.
+- **Validated citations:** retrieved chunks are numbered `[1]..[k]`; after
+  generation, every `[n]` marker is checked against the retrieved set —
+  hallucinated citations are logged and stripped, and a `Sources:` footnote lists
+  only the chunks actually used. Citation validity is a first-class eval metric
+  in Phase 3.
+- **One local file:** chunks, vectors, and keyword index live in the same SQLite
+  database as your chat sessions.
+
+```bash
+# Ingest a folder of notes/PDFs (idempotent — unchanged files are skipped)
+uv run watari ingest ~/Documents/notes
+
+# See what's stored
+uv run watari stats
+
+# Ask cited questions (RAG auto-enables when the store is non-empty;
+# toggle per-turn with /rag inside the REPL)
+uv run watari chat
+```
 
 ## Quickstart
 
@@ -99,9 +134,9 @@ every PR. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the full six-phase plan. Next up: RAG over personal
-docs with citations, and the hand-rolled eval harness that is the centerpiece of
-the project.
+See [PLAN.md](PLAN.md) for the full six-phase plan. Next up (Phase 3): the
+hand-rolled eval harness that is the centerpiece of the project — recall@k, MRR,
+citation validity, and an LLM-judge for faithfulness, with CI regression gates.
 
 ## License
 
