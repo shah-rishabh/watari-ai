@@ -4,9 +4,10 @@ A **local-first LLM personal assistant** — your data never leaves your machine
 Built as a production-engineering exercise: rigorous evals, security hardening,
 observability, and CI are first-class, not afterthoughts.
 
-> **Status:** Phase 2 of 6 — streaming chat plus **RAG over personal documents
-> with hybrid retrieval and validated citations**. Agent/tool use, long-term
-> memory, and the eval harness land in later phases (see [PLAN.md](PLAN.md)).
+> **Status:** Phase 3 of 6 — streaming chat, **RAG with hybrid retrieval and
+> validated citations**, and a **hand-rolled eval harness** with CI regression
+> gates. Agent/tool use and long-term memory land in later phases (see
+> [PLAN.md](PLAN.md)).
 
 ## Why this exists
 
@@ -67,6 +68,38 @@ uv run watari stats
 # Ask cited questions (RAG auto-enables when the store is non-empty;
 # toggle per-turn with /rag inside the REPL)
 uv run watari chat
+```
+
+## Evaluation — measured, not vibes
+
+Every retrieval and generation claim carries a number from a **hand-rolled eval
+harness** (no RAGAS/deepeval — the metric math is ours and unit-tested). Suites
+run against a fictional corpus with hand-verified golden answers.
+
+<!-- EVAL_TABLE_START -->
+| Suite | Model | Cases | Metric | Value |
+| --- | --- | --- | --- | --- |
+| retrieval | qwen3.5:4b | 24 | recall@3 | 0.917 |
+| retrieval | qwen3.5:4b | 24 | recall@5 | 0.958 |
+| retrieval | qwen3.5:4b | 24 | recall@10 | 1.000 |
+| retrieval | qwen3.5:4b | 24 | mrr | 0.910 |
+| rag-qa | qwen3.5:4b | 15 | faithfulness | 0.981 |
+| rag-qa | qwen3.5:4b | 15 | answer_relevance | 0.933 |
+| rag-qa | qwen3.5:4b | 15 | citation_validity | 1.000 |
+<!-- EVAL_TABLE_END -->
+
+- **Retrieval** — `recall@k` and `MRR` against golden chunk refs (deterministic).
+- **Faithfulness** — an LLM-judge decomposes each answer into atomic claims and
+  checks each against the retrieved context. The judge is itself **calibrated**
+  against human labels (Cohen's kappa), because a judge you can't trust isn't a
+  metric — see [docs/evals.md](docs/evals.md).
+- **Regression gates** — [`evals.yml`](.github/workflows/evals.yml) runs the
+  smoke suites through a tiny CPU model (`qwen2.5:0.5b`) in CI and fails the build
+  if any metric drops below its floor in [`thresholds.json`](evals/thresholds.json).
+
+```bash
+uv run watari evals run --suite all     # full suites, local model
+uv run watari evals calibrate           # judge-vs-human agreement
 ```
 
 ## Quickstart
@@ -130,13 +163,16 @@ pre-commit install     # enable git hooks
 ```
 
 CI runs lint, format-check, strict type-check, unit tests, and a Docker build on
-every PR. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
+every PR ([ci.yml](.github/workflows/ci.yml)); a separate
+[evals.yml](.github/workflows/evals.yml) runs the eval smoke suites through a
+tiny CPU model and gates on metric floors.
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the full six-phase plan. Next up (Phase 3): the
-hand-rolled eval harness that is the centerpiece of the project — recall@k, MRR,
-citation validity, and an LLM-judge for faithfulness, with CI regression gates.
+See [PLAN.md](PLAN.md) for the full six-phase plan. Next up (Phase 4): the
+tool-using agent loop with a permission model and sandboxing, plus a
+prompt-injection eval suite reporting attack-success-rate before and after
+mitigations.
 
 ## License
 

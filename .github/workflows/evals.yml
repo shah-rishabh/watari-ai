@@ -1,0 +1,87 @@
+name: Evals
+
+# Runs the eval smoke suites through a tiny CPU model in CI, gating merges on
+# metric floors. Triggered on the "run-evals" label, on a nightly schedule, and
+# on pushes to main. The model runs through the SAME OpenAI-compatible client as
+# the dev path (Ollama's /v1), so CI exercises the real code, not a stub.
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  schedule:
+    - cron: "0 4 * * *" # nightly at 04:00 UTC
+  push:
+    branches: [main]
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    # On PRs, only run when explicitly labelled (evals are slower/costlier than CI).
+    if: >
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'run-evals')
+    runs-on: ubuntu-latest
+    env:
+      WATARI_CHAT_MODEL: qwen2.5:0.5b
+      WATARI_JUDGE_MODEL: qwen2.5:0.5b
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Cache Ollama models
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.WATARI_CHAT_MODEL }}
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > ollama.log 2>&1 &
+          # Wait for the server to accept connections.
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:11434/api/tags >/dev/null; then break; fi
+            sleep 1
+          done
+          ollama pull "$WATARI_CHAT_MODEL"
+
+      - name: Run eval smoke suites (gated)
+        run: uv run watari evals run --smoke --gate --out eval-results
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results/
+
+      - name: Comment results on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let table = '_eval results unavailable_';
+            try {
+              table = fs.readFileSync('eval-results/results.md', 'utf8');
+            } catch (e) {}
+            const body = `### Eval smoke results (\`${process.env.WATARI_CHAT_MODEL}\`)\n\n${table}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

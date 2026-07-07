@@ -50,6 +50,9 @@ class ChatService:
         self._settings = settings
         self._retriever = retriever
 
+    async def create_session(self, title: str | None = None) -> str:
+        return await self._store.create_session(title)
+
     async def stream_reply(
         self, session_id: str, user_text: str, *, use_rag: bool = False
     ) -> AsyncIterator[ChatDelta]:

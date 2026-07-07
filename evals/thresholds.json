@@ -1,0 +1,12 @@
+{
+  "retrieval": {
+    "recall@5": 0.75,
+    "recall@10": 0.85,
+    "mrr": 0.65
+  },
+  "rag-qa": {
+    "faithfulness": 0.6,
+    "answer_relevance": 0.6,
+    "citation_validity": 0.8
+  }
+}

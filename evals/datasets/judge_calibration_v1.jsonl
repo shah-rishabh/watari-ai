@@ -1,0 +1,30 @@
+{"id": "cal-001", "context": "Mara lives in Lisbon, Portugal.", "answer": "Mara lives in Lisbon.", "human_faithful": true}
+{"id": "cal-002", "context": "Mara lives in Lisbon, Portugal.", "answer": "Mara lives in Madrid.", "human_faithful": false}
+{"id": "cal-003", "context": "Tidal is written in Rust and runs a control loop every 90 seconds.", "answer": "Tidal is written in Rust.", "human_faithful": true}
+{"id": "cal-004", "context": "Tidal is written in Rust and runs a control loop every 90 seconds.", "answer": "Tidal is written in Python.", "human_faithful": false}
+{"id": "cal-005", "context": "Kestrel's battery lasts 22 minutes per flight.", "answer": "Kestrel can fly for about 22 minutes on a charge.", "human_faithful": true}
+{"id": "cal-006", "context": "Kestrel's battery lasts 22 minutes per flight.", "answer": "Kestrel can fly for over an hour.", "human_faithful": false}
+{"id": "cal-007", "context": "Mara is allergic to peanuts and is lactose intolerant.", "answer": "Mara is allergic to peanuts.", "human_faithful": true}
+{"id": "cal-008", "context": "Mara is allergic to peanuts and is lactose intolerant.", "answer": "Mara is allergic to shellfish.", "human_faithful": false}
+{"id": "cal-009", "context": "Loom uses a Raspberry Pi 4 and communicates over a CAN bus.", "answer": "Loom is controlled by a Raspberry Pi 4.", "human_faithful": true}
+{"id": "cal-010", "context": "Loom uses a Raspberry Pi 4 and communicates over a CAN bus.", "answer": "Loom is controlled by an Arduino.", "human_faithful": false}
+{"id": "cal-011", "context": "Mara runs three times a week.", "answer": "Mara runs three times a week and swims daily.", "human_faithful": false}
+{"id": "cal-012", "context": "Mara backs up her data on the first of each month.", "answer": "Mara backs up her data monthly.", "human_faithful": true}
+{"id": "cal-013", "context": "The greenhouse control loop runs every 90 seconds.", "answer": "The control loop runs every 90 seconds.", "human_faithful": true}
+{"id": "cal-014", "context": "The greenhouse control loop runs every 90 seconds.", "answer": "The control loop runs every 9 seconds.", "human_faithful": false}
+{"id": "cal-015", "context": "Mara's passport expires in August next year.", "answer": "Mara's passport is valid until next August.", "human_faithful": true}
+{"id": "cal-016", "context": "Mara does not take meetings after 3pm.", "answer": "Mara is available for meetings at 5pm.", "human_faithful": false}
+{"id": "cal-017", "context": "Kestrel navigates using visual-inertial odometry because it operates indoors.", "answer": "Kestrel uses visual-inertial odometry for navigation.", "human_faithful": true}
+{"id": "cal-018", "context": "Kestrel navigates using visual-inertial odometry because it operates indoors.", "answer": "Kestrel navigates using GPS.", "human_faithful": false}
+{"id": "cal-019", "context": "Mara is fluent in Igbo and conversational in Portuguese.", "answer": "Mara is fluent in Igbo.", "human_faithful": true}
+{"id": "cal-020", "context": "Mara is fluent in Igbo and conversational in Portuguese.", "answer": "Mara is a native Portuguese speaker.", "human_faithful": false}
+{"id": "cal-021", "context": "Loom can produce a scarf in about 40 minutes.", "answer": "Loom makes a scarf in roughly 40 minutes.", "human_faithful": true}
+{"id": "cal-022", "context": "Mara reviews the week ahead every Sunday evening.", "answer": "Mara does a weekly review on Sundays.", "human_faithful": true}
+{"id": "cal-023", "context": "Mara moved to Portugal in 2017.", "answer": "Mara moved to Portugal in 2007.", "human_faithful": false}
+{"id": "cal-024", "context": "The Kestrel project is under an NDA.", "answer": "Kestrel is a confidential client project.", "human_faithful": true}
+{"id": "cal-025", "context": "Mara completed her master's in Mechatronics in 2016.", "answer": "Mara has a master's degree in Mechatronics.", "human_faithful": true}
+{"id": "cal-026", "context": "Mara completed her master's in Mechatronics in 2016.", "answer": "Mara has a PhD in Mechatronics.", "human_faithful": false}
+{"id": "cal-027", "context": "Tidal stores readings in a local TimescaleDB instance.", "answer": "Tidal stores its data in TimescaleDB.", "human_faithful": true}
+{"id": "cal-028", "context": "Tidal stores readings in a local TimescaleDB instance.", "answer": "Tidal stores its data in MongoDB.", "human_faithful": false}
+{"id": "cal-029", "context": "Mara sees a physiotherapist every second Friday.", "answer": "Mara has physiotherapy every other Friday.", "human_faithful": true}
+{"id": "cal-030", "context": "Mara prefers hand luggage only when flying.", "answer": "Mara checks two suitcases when flying.", "human_faithful": false}
