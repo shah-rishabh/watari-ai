@@ -19,6 +19,7 @@ from rich.panel import Panel
 from watari.api.deps import AppState, build_state, teardown_state
 from watari.config import get_settings
 from watari.evals.cli import app as evals_app
+from watari.memory.cli import app as memory_app
 from watari.obs.logging import configure_logging
 
 app = typer.Typer(
@@ -28,6 +29,7 @@ app = typer.Typer(
     add_completion=False,
 )
 app.add_typer(evals_app, name="evals")
+app.add_typer(memory_app, name="memory")
 console = Console()
 
 
@@ -47,7 +49,7 @@ async def _run_repl() -> None:
                 f"RAG: [cyan]{'on' if use_rag else 'off'}[/cyan] "
                 f"({rag_stats['documents']} docs, {rag_stats['chunks']} chunks)\n"
                 "Type your message. [dim]/rag[/dim] toggles retrieval, "
-                "[dim]/exit[/dim] to quit.",
+                "[dim]/remember[/dim] saves facts, [dim]/exit[/dim] to quit.",
                 border_style="cyan",
             )
         )
@@ -65,6 +67,16 @@ async def _run_repl() -> None:
             if user_text == "/rag":
                 use_rag = not use_rag
                 console.print(f"[dim]RAG {'on' if use_rag else 'off'}[/dim]")
+                continue
+            if user_text == "/remember":
+                history = await state.store.get_history(session_id)
+                facts = await state.memory.remember_from_transcript(
+                    history, source=f"session:{session_id[:8]}"
+                )
+                console.print(
+                    f"[dim]remembered {len(facts)} fact(s): "
+                    f"{', '.join(f.fact for f in facts) or 'none'}[/dim]"
+                )
                 continue
 
             await _stream_turn(state, session_id, user_text, use_rag=use_rag)
@@ -175,12 +187,14 @@ async def _run_stats() -> None:
     state = await build_state(settings)
     try:
         s = state.rag_store.stats()
+        mem = len(state.memory.list_active())
         console.print(
             Panel.fit(
                 f"documents: [cyan]{s['documents']}[/cyan]\n"
                 f"chunks:    [cyan]{s['chunks']}[/cyan]\n"
+                f"memories:  [cyan]{mem}[/cyan]\n"
                 f"embed:     [cyan]{settings.embed_model}[/cyan]",
-                title="RAG store",
+                title="Watari store",
                 border_style="cyan",
             )
         )
@@ -190,7 +204,7 @@ async def _run_stats() -> None:
 
 @app.command()
 def stats() -> None:
-    """Show RAG store statistics."""
+    """Show store statistics (documents, chunks, memories)."""
     asyncio.run(_run_stats())
 
 

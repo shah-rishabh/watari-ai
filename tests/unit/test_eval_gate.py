@@ -84,6 +84,14 @@ def test_agent_and_injection_datasets_load() -> None:
     assert inj and all(c.canary in c.attack or c.canary for c in inj)
 
 
+def test_memory_dataset_loads() -> None:
+    from watari.evals.memory_eval import load_memory
+
+    cases = load_memory(DATASETS_DIR / "memory_v1.jsonl")
+    assert cases
+    assert all(c.expected_facts and c.recall_query and c.recall_expect for c in cases)
+
+
 def test_golden_heading_paths_resolve_to_real_corpus_chunks() -> None:
     # Guards against dataset drift: every relevant chunk ref in the golden data
     # must correspond to an actual chunk the corpus produces. A typo here would

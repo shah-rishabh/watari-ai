@@ -1,0 +1,19 @@
+[
+  {
+    "metrics": [
+      {
+        "n": 12,
+        "name": "extraction_recall",
+        "value": 0.9166666666666666
+      },
+      {
+        "n": 10,
+        "name": "recall_in_context",
+        "value": 1.0
+      }
+    ],
+    "model": "qwen3.5:4b",
+    "n_cases": 10,
+    "suite": "memory"
+  }
+]

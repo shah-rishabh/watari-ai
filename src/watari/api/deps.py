@@ -14,6 +14,9 @@ from watari.config import Settings
 from watari.core.chat import ChatService
 from watari.core.llm import OpenAICompatibleProvider
 from watari.core.session import SessionStore
+from watari.memory.extract import FactExtractor
+from watari.memory.service import MemoryService
+from watari.memory.store import MemoryStore
 from watari.rag.embeddings import FastEmbedEmbedder
 from watari.rag.retrieve import Retriever
 from watari.rag.service import IngestService
@@ -30,6 +33,8 @@ class AppState:
     embedder: FastEmbedEmbedder
     retriever: Retriever
     ingest: IngestService
+    memory_store: MemoryStore
+    memory: MemoryService
 
 
 async def build_state(settings: Settings) -> AppState:
@@ -37,13 +42,19 @@ async def build_state(settings: Settings) -> AppState:
     store = SessionStore(settings.db_path)
     await store.connect()
 
+    embedder = FastEmbedEmbedder(settings)
+
     rag_store = RagStore(settings)
     await rag_store.aconnect()
-    embedder = FastEmbedEmbedder(settings)
     retriever = Retriever(rag_store, embedder, settings)
     ingest = IngestService(rag_store, embedder, settings)
 
-    chat = ChatService(provider, store, settings, retriever=retriever)
+    memory_store = MemoryStore(settings)
+    await memory_store.aconnect()
+    extractor = FactExtractor(provider, settings.extract_model)
+    memory = MemoryService(memory_store, embedder, extractor, settings)
+
+    chat = ChatService(provider, store, settings, retriever=retriever, memory=memory)
     return AppState(
         settings=settings,
         provider=provider,
@@ -53,6 +64,8 @@ async def build_state(settings: Settings) -> AppState:
         embedder=embedder,
         retriever=retriever,
         ingest=ingest,
+        memory_store=memory_store,
+        memory=memory,
     )
 
 
@@ -60,6 +73,7 @@ async def teardown_state(state: AppState) -> None:
     await state.provider.aclose()
     await state.store.close()
     await state.rag_store.aclose()
+    await state.memory_store.aclose()
 
 
 def get_state(request: Request) -> AppState:

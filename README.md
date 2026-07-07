@@ -4,10 +4,11 @@ A **local-first LLM personal assistant** — your data never leaves your machine
 Built as a production-engineering exercise: rigorous evals, security hardening,
 observability, and CI are first-class, not afterthoughts.
 
-> **Status:** Phase 4 of 6 — streaming chat, **RAG with hybrid retrieval and
-> validated citations**, a **hand-rolled eval harness** with CI gates, and a
-> **sandboxed tool-using agent** with a prompt-injection eval suite. Long-term
-> memory and observability polish land in the final phases (see [PLAN.md](PLAN.md)).
+> **Status:** Phase 5 of 6 — streaming chat, **RAG with hybrid retrieval and
+> validated citations**, a **hand-rolled eval harness** with CI gates, a
+> **sandboxed tool-using agent** with a prompt-injection suite, and **long-term
+> memory** with observability (`/metrics`, latency figures). All five capability
+> pillars are in place; Phase 6 is polish (see [PLAN.md](PLAN.md)).
 
 ## Why this exists
 
@@ -89,6 +90,8 @@ run against a fictional corpus with hand-verified golden answers.
 | agent | qwen3.5:4b | 10 | tool_selection | 1.000 |
 | agent | qwen3.5:4b | 10 | task_completion | 1.000 |
 | agent | qwen3.5:4b | 10 | mean_iterations | 2.100 |
+| memory | qwen3.5:4b | 10 | extraction_recall | 0.917 |
+| memory | qwen3.5:4b | 10 | recall_in_context | 1.000 |
 <!-- EVAL_TABLE_END -->
 
 - **Retrieval** — `recall@k` and `MRR` against golden chunk refs (deterministic).
@@ -161,6 +164,35 @@ documented decision, not a gap ([ADR-002](docs/adr/002-no-shell-tool.md)).
 uv run watari agent "Create notes/todo.md with a checklist of my errands."
 ```
 
+## Long-term memory
+
+Watari remembers durable facts about you across sessions. Facts are extracted by
+a constrained LLM call, embedded, and stored in the same SQLite file; a new fact
+that is a near-duplicate of an existing one **supersedes** it (cosine > 0.9), and
+relevant facts are recalled into context on later turns.
+
+```bash
+uv run watari memory remember "I'm allergic to shellfish and live in Berlin."
+uv run watari memory list          # see everything Watari remembers
+uv run watari memory forget 3      # forget one; `wipe` forgets all
+```
+
+In a chat session, `/remember` extracts facts from the conversation so far. You
+stay in control — nothing is stored without an explicit `remember`/`/remember`,
+and it's all local. The memory eval suite measures extraction recall and
+recall-in-context (see the table above).
+
+## Observability
+
+A single-user local app doesn't need Prometheus + a collector, so Watari keeps
+lightweight in-process metrics and hand-rolled spans — with **OpenTelemetry-
+compatible attribute names** so the seam maps onto a real OTel exporter later
+([architecture](docs/architecture.md)).
+
+- `GET /metrics` (and `watari stats`) expose token counters and latency
+  percentiles: TTFT, reply latency, and per-span timings.
+- On an RTX 3060 laptop (6GB, `qwen3.5:4b`), warm **p50 TTFT ≈ 300 ms**.
+
 ## Security posture
 
 Security is a measured pillar, not a checkbox. The full
@@ -209,10 +241,10 @@ tiny CPU model and gates on metric floors.
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the full six-phase plan. Next up (Phase 5): long-term
-memory across sessions (fact extraction, embedded recall, `watari memory`
-commands) with its own eval suite, plus observability polish (`/metrics`, span
-timing, latency figures into the README).
+See [PLAN.md](PLAN.md) for the full six-phase plan. All five capability pillars
+are done. Next up (Phase 6): polish — README overhaul, a demo GIF, ADR backfill,
+a docker-compose demo path, and (stretch) swapping the hand-rolled spans for a
+real OpenTelemetry exporter.
 
 ## License
 

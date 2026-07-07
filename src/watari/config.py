@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # paper and a robust default.
     rrf_k: int = Field(default=60, ge=1)
 
+    # --- Memory ---
+    # Cosine similarity above which a new fact supersedes an existing one.
+    memory_dedup_threshold: float = Field(default=0.9, ge=0.0, le=1.0)
+    # Minimum similarity for a fact to be recalled into context.
+    memory_recall_floor: float = Field(default=0.35, ge=0.0, le=1.0)
+    memory_recall_top_k: int = Field(default=5, ge=1)
+
     # --- Storage ---
     data_dir: Path = Field(default_factory=_default_data_dir)
 

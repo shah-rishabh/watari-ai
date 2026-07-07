@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from watari import __version__
 from watari.api.deps import build_state, teardown_state
-from watari.api.routes import chat, health
+from watari.api.routes import chat, health, metrics
 from watari.config import Settings, get_settings
 from watari.obs.logging import configure_logging
 
@@ -46,4 +46,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(chat.router)
+    app.include_router(metrics.router)
     return app
