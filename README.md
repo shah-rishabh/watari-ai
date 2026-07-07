@@ -1,42 +1,62 @@
 # Watari AI
 
-A **local-first LLM personal assistant** — your data never leaves your machine.
-Built as a production-engineering exercise: rigorous evals, security hardening,
-observability, and CI are first-class, not afterthoughts.
+**A local-first LLM personal assistant — built like production software, not a demo.**
 
-> **Status:** Phase 5 of 6 — streaming chat, **RAG with hybrid retrieval and
-> validated citations**, a **hand-rolled eval harness** with CI gates, a
-> **sandboxed tool-using agent** with a prompt-injection suite, and **long-term
-> memory** with observability (`/metrics`, latency figures). All five capability
-> pillars are in place; Phase 6 is polish (see [PLAN.md](PLAN.md)).
+Your data never leaves your machine. RAG over your documents, a sandboxed
+tool-using agent, and long-term memory — each backed by a hand-rolled evaluation
+harness, a documented threat model, and CI gates. The engineering *around* the
+model is the point.
+
+![CI](https://img.shields.io/badge/CI-ruff%20%7C%20pyright%20%7C%20132%20tests-2ea44f)
+![Evals](https://img.shields.io/badge/evals-gated%20in%20CI-2ea44f)
+![Python](https://img.shields.io/badge/python-3.12+-3776ab)
+![Local](https://img.shields.io/badge/data-100%25%20local-6f42c1)
+![License](https://img.shields.io/badge/license-MIT-informational)
+
+At a glance (measured on a laptop RTX 3060, `qwen3.5:4b`):
+
+| Pillar | What it does | Headline number |
+| --- | --- | --- |
+| **RAG** | Hybrid vector+BM25 retrieval with validated citations | recall@5 **0.96**, faithfulness **0.98** |
+| **Agent** | Sandboxed tool use (files, tasks) with permissions | tool-selection **1.00**, task-completion **1.00** |
+| **Security** | Prompt-injection suite, before/after mitigation | attack success **0.25 → 0.00** |
+| **Memory** | Cross-session facts, embedded recall | recall-in-context **1.00** |
+| **Speed** | Streaming, warm | p50 TTFT **~300 ms** |
+
+Every number comes from `watari evals run` — see [Evaluation](#evaluation--measured-not-vibes).
+Built in six phases; see [PLAN.md](PLAN.md) for the roadmap.
 
 ## Why this exists
 
 Most "local LLM assistant" repos are a thin wrapper over Ollama. This one is
-built around the engineering *around* the model: every capability claim is meant
-to carry a measured number from an eval harness, and the security posture is
-documented rather than assumed.
+built around the engineering *around* the model: every capability claim carries a
+measured number from an eval harness, the security posture is documented rather
+than assumed, and CI gates both. It is a portfolio piece for AI/ML engineering —
+the code is meant to be read.
 
 ## Architecture
 
-```
-                    ┌──────────────┐     ┌──────────────┐
-   CLI (typer+rich) │              │     │  SessionStore│  ┐
-   ─────────────────▶  ChatService ├─────▶  (aiosqlite) │  │  one SQLite file
-   FastAPI (SSE)    │              │     ├──────────────┤  ├─ ~/.watari/watari.db
-   ─────────────────▶              │     │  RagStore    │  │  (sessions + vectors)
-                    │              ├─────▶ vec0 + FTS5  │  ┘
-                    │              │     └──────────────┘
-                    │              │     ┌──────────────┐
-                    │              ├─────▶ LLMProvider   │  OpenAI-compatible
-                    └──────────────┘     │ (→ Ollama /v1)│  → llama.cpp/vLLM/…
-                                         └──────────────┘
+```mermaid
+flowchart LR
+    CLI[CLI · typer+rich] --> Chat[ChatService]
+    API[FastAPI · SSE] --> Chat
+    Chat --> Mem[MemoryService]
+    Chat --> Ret[Retriever]
+    Chat --> LLM[LLMProvider]
+    Agent[AgentLoop] --> Perm[Permissions + audit]
+    Agent --> Jail[Sandbox jail]
+    Agent --> LLM
+    Ret --> DB[(~/.watari/watari.db<br/>sessions · vec0+FTS5 · memory)]
+    Mem --> DB
+    Chat --> DB
+    LLM -->|OpenAI /v1| Ollama[Ollama / llama.cpp / vLLM]
 ```
 
 Both surfaces (CLI and API) consume the **same** `ChatService.stream_reply`
 async iterator — the thin-adapter design in one picture. The `LLMProvider`
 Protocol is the swappable seam: laptop runs `qwen3.5:4b`, CI runs
-`qwen2.5:0.5b`, via configuration only. See
+`qwen2.5:0.5b`, via configuration only. Full component map and request flow in
+[docs/architecture.md](docs/architecture.md); the model-abstraction rationale in
 [ADR-000](docs/adr/000-provider-abstraction.md).
 
 ## RAG over your documents
@@ -133,6 +153,15 @@ uv run watari serve
 deeper-reasoning upgrade if you have the VRAM/patience. Any model is
 configurable via `WATARI_CHAT_MODEL`.
 
+**Docker:** `docker compose up --build`, then
+`docker compose exec ollama ollama pull qwen3.5:4b`, and open
+<http://127.0.0.1:8000/docs>. See [docker-compose.yml](docker-compose.yml).
+
+**Demo GIF:** the terminal demo is scripted with
+[vhs](https://github.com/charmbracelet/vhs) in
+[docs/demo/watari.tape](docs/demo/watari.tape) — run `vhs docs/demo/watari.tape`
+to regenerate `docs/demo/watari.gif`.
+
 ## Configuration
 
 All settings are environment variables with the `WATARI_` prefix (or a `.env`
@@ -224,28 +253,43 @@ Other defaults, deliberate not accidental:
 Deliberately skipped (documented, with reasoning): localhost auth/TLS/rate
 limiting, "AI guardrail" content filters, container isolation of tools.
 
+## Design decisions (ADRs)
+
+The choices worth defending in an interview are written down:
+
+- [ADR-000 — Provider abstraction](docs/adr/000-provider-abstraction.md): OpenAI-compatible client, not a hand-rolled one or LangChain.
+- [ADR-001 — Vector store](docs/adr/001-vector-store.md): sqlite-vec + FTS5 hybrid with RRF, not Qdrant/Chroma.
+- [ADR-002 — No shell tool](docs/adr/002-no-shell-tool.md): a deliberate capability cut, not a gap.
+- [ADR-003 — Reasoning off by default](docs/adr/003-reasoning-off-by-default.md): a 40× token cut, found by probing the model.
+- [ADR-004 — Simple memory](docs/adr/004-simple-memory.md): flat evaluable facts, no graph/decay scope creep.
+
+Plus [docs/evals.md](docs/evals.md) (methodology + judge calibration),
+[docs/threat-model.md](docs/threat-model.md) (STRIDE-lite, residual risk), and
+[docs/architecture.md](docs/architecture.md).
+
 ## Development
 
 ```bash
-uv run pytest          # tests
-uv run ruff check .    # lint
-uv run ruff format .   # format
-uv run pyright         # strict type check
-pre-commit install     # enable git hooks
+make install       # uv sync + pre-commit hooks
+make check         # ruff + format-check + pyright + tests (the CI gate)
+make evals         # run the full eval suites locally
+make run           # start the API
 ```
 
-CI runs lint, format-check, strict type-check, unit tests, and a Docker build on
-every PR ([ci.yml](.github/workflows/ci.yml)); a separate
-[evals.yml](.github/workflows/evals.yml) runs the eval smoke suites through a
-tiny CPU model and gates on metric floors.
+Or drive the tools directly with `uv run` — see the [Makefile](Makefile). Two
+GitHub Actions workflows guard the repo: [ci.yml](.github/workflows/ci.yml) runs
+lint, format-check, strict type-check, unit tests, and a Docker build on every
+PR; [evals.yml](.github/workflows/evals.yml) runs the eval smoke suites through a
+tiny CPU model and **gates merges on metric floors**.
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the full six-phase plan. All five capability pillars
-are done. Next up (Phase 6): polish — README overhaul, a demo GIF, ADR backfill,
-a docker-compose demo path, and (stretch) swapping the hand-rolled spans for a
-real OpenTelemetry exporter.
+All six phases of the [PLAN.md](PLAN.md) are complete: skeleton & streaming chat,
+RAG with citations, the eval harness, agent & security, memory & observability,
+and polish. Possible future work (stretch): a cross-encoder reranker experiment,
+a real OpenTelemetry exporter (the span seam already uses OTel-compatible naming),
+and a static web UI.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
