@@ -9,8 +9,9 @@ single thing to mock in tests. See ``docs/adr/000-provider-abstraction.md``.
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Sequence
-from typing import Protocol
+from typing import Protocol, cast
 
 from openai import AsyncOpenAI
 from openai.types.chat import (
@@ -18,6 +19,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 
+from watari.agent.models import AssistantTurn, ToolCall
 from watari.config import Settings
 from watari.core.models import ChatDelta, ChatMessage, Usage
 
@@ -104,6 +106,44 @@ class OpenAICompatibleProvider:
                 yield ChatDelta(content=piece)
 
         yield ChatDelta(done=True, usage=usage or Usage())
+
+    async def complete_with_tools(
+        self,
+        wire_messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        *,
+        model: str | None = None,
+    ) -> AssistantTurn:
+        """One non-streamed completion that may request tool calls.
+
+        Agent loops are turn-based, so a single-shot completion is a cleaner fit
+        than the streaming path. ``wire_messages`` is already in OpenAI wire form
+        (the loop builds tool/assistant messages the streaming API doesn't model).
+        """
+        resp = await self._client.chat.completions.create(
+            model=model or self._settings.chat_model,
+            messages=wire_messages,  # type: ignore[arg-type]
+            tools=tools or None,  # type: ignore[arg-type]
+            temperature=self._settings.temperature,
+            max_tokens=self._settings.max_response_tokens,
+            extra_body={"reasoning_effort": self._settings.reasoning_effort},
+        )
+        choice = resp.choices[0].message
+        calls: list[ToolCall] = []
+        for tc in choice.tool_calls or []:
+            if tc.type != "function":
+                continue
+            parsed: object
+            try:
+                parsed = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                parsed = {}
+            arguments: dict[str, object] = {}
+            if isinstance(parsed, dict):
+                raw_dict = cast("dict[object, object]", parsed)
+                arguments = {str(k): v for k, v in raw_dict.items()}
+            calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=arguments))
+        return AssistantTurn(content=choice.content or "", tool_calls=calls)
 
     async def aclose(self) -> None:
         await self._client.close()

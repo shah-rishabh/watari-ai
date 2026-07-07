@@ -80,6 +80,19 @@ class Settings(BaseSettings):
     # --- Storage ---
     data_dir: Path = Field(default_factory=_default_data_dir)
 
+    # --- Agent / tools ---
+    # The filesystem tools are jailed to this directory. Defaults to a workspace
+    # under the data dir; every path a tool touches must resolve inside it.
+    workspace_dir: Path | None = Field(default=None)
+    # Hard caps to bound tool I/O (defense-in-depth, and keeps tool output from
+    # blowing the context budget).
+    max_file_read_bytes: int = Field(default=256_000, ge=1)
+    max_file_write_bytes: int = Field(default=256_000, ge=1)
+    max_agent_iterations: int = Field(default=8, ge=1)
+    # web_search is opt-in and off by default — it contradicts "data never leaves
+    # your machine", so enabling it is an explicit, logged choice.
+    enable_web_search: bool = Field(default=False)
+
     # --- API server ---
     # Bind to loopback by default: a localhost API is reachable by malicious
     # web pages via CSRF-style requests, so we never listen on 0.0.0.0 outside
@@ -99,8 +112,16 @@ class Settings(BaseSettings):
         """Single SQLite file holding sessions, vectors, and memory."""
         return self.data_dir / "watari.db"
 
+    @property
+    def workspace_path(self) -> Path:
+        """The jail root for filesystem tools."""
+        return self.workspace_dir or (self.data_dir / "workspace")
+
     def ensure_data_dir(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
+
+    def ensure_workspace(self) -> None:
+        self.workspace_path.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache

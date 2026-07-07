@@ -4,10 +4,10 @@ A **local-first LLM personal assistant** — your data never leaves your machine
 Built as a production-engineering exercise: rigorous evals, security hardening,
 observability, and CI are first-class, not afterthoughts.
 
-> **Status:** Phase 3 of 6 — streaming chat, **RAG with hybrid retrieval and
-> validated citations**, and a **hand-rolled eval harness** with CI regression
-> gates. Agent/tool use and long-term memory land in later phases (see
-> [PLAN.md](PLAN.md)).
+> **Status:** Phase 4 of 6 — streaming chat, **RAG with hybrid retrieval and
+> validated citations**, a **hand-rolled eval harness** with CI gates, and a
+> **sandboxed tool-using agent** with a prompt-injection eval suite. Long-term
+> memory and observability polish land in the final phases (see [PLAN.md](PLAN.md)).
 
 ## Why this exists
 
@@ -86,6 +86,9 @@ run against a fictional corpus with hand-verified golden answers.
 | rag-qa | qwen3.5:4b | 15 | faithfulness | 0.981 |
 | rag-qa | qwen3.5:4b | 15 | answer_relevance | 0.933 |
 | rag-qa | qwen3.5:4b | 15 | citation_validity | 1.000 |
+| agent | qwen3.5:4b | 10 | tool_selection | 1.000 |
+| agent | qwen3.5:4b | 10 | task_completion | 1.000 |
+| agent | qwen3.5:4b | 10 | mean_iterations | 2.100 |
 <!-- EVAL_TABLE_END -->
 
 - **Retrieval** — `recall@k` and `MRR` against golden chunk refs (deterministic).
@@ -93,6 +96,8 @@ run against a fictional corpus with hand-verified golden answers.
   checks each against the retrieved context. The judge is itself **calibrated**
   against human labels (Cohen's kappa), because a judge you can't trust isn't a
   metric — see [docs/evals.md](docs/evals.md).
+- **Agent** — `tool_selection` and `task_completion` are checked against **real
+  state** (was the file written? was the task row created?), not judged.
 - **Regression gates** — [`evals.yml`](.github/workflows/evals.yml) runs the
   smoke suites through a tiny CPU model (`qwen2.5:0.5b`) in CI and fails the build
   if any metric drops below its floor in [`thresholds.json`](evals/thresholds.json).
@@ -138,19 +143,54 @@ roles so the same code serves a laptop GPU and CPU-only CI:
 | `WATARI_HOST` | `127.0.0.1` | Bind loopback by default (see Security) |
 | `WATARI_MAX_CONTEXT_TOKENS` | `8192` | Context assembly budget |
 
+## Agent & tools
+
+Watari can use a small, deliberately-limited tool set to act on the user's
+behalf: `read_file` / `list_dir`, `write_file`, a local `tasks` to-do list, and
+an opt-in `web_search` (off by default). **There is no shell/exec tool** — a
+documented decision, not a gap ([ADR-002](docs/adr/002-no-shell-tool.md)).
+
+- **Permission model** — READ tools auto-approve; WRITE/EXECUTE require
+  confirmation (the CLI prompts; `--yolo` bypasses for demos, loudly). Every
+  decision and execution is appended to a JSONL **audit log**.
+- **Filesystem jail** — every path a tool touches is resolved (following
+  symlinks) and confirmed inside the workspace; traversal, symlink escape, and
+  null bytes are red-teamed in [`tests/security/`](tests/security/).
+
+```bash
+uv run watari agent "Create notes/todo.md with a checklist of my errands."
+```
+
 ## Security posture
 
-Even at Phase 1 the defaults are deliberate, not accidental:
+Security is a measured pillar, not a checkbox. The full
+[threat model](docs/threat-model.md) is STRIDE-lite and **states residual risk
+explicitly** — what's defended, how, and what deliberately isn't.
 
-- The API **binds `127.0.0.1`** by default and ships a **closed CORS policy** —
-  a localhost API is reachable by malicious web pages via CSRF-style requests,
-  so we do not listen on `0.0.0.0` outside a container.
-- All request bodies are **pydantic-validated** with size caps.
-- The structured-logging pipeline **redacts** secret-looking keys.
-- `gitleaks` runs in pre-commit; `.env` is gitignored.
+**Prompt injection** is the flagship: the `injection` eval suite plants
+adversarial instructions (carrying canary tokens) in content the model reads,
+and measures **attack success rate before and after** the untrusted-content
+wrapping mitigation.
 
-A full threat model arrives with the agent/tool phase (Phase 4), including a
-prompt-injection eval suite with before/after attack-success-rate numbers.
+| Condition | Attack success rate (12 cases, qwen3.5:4b) |
+| --- | --- |
+| Unmitigated (raw injected content) | ~0.25 |
+| Mitigated (spotlighting / untrusted-content wrapping) | ~0.00 |
+
+The wrapping drives successful injections to near-zero on this suite. (Small-model
+runs vary; the number is honest about that — and the threat model notes injection
+is *reduced, not eliminated*.)
+
+Other defaults, deliberate not accidental:
+
+- API **binds `127.0.0.1`** with a **closed CORS policy** — a localhost API is
+  reachable by malicious web pages via CSRF-style requests.
+- Filesystem **jail** + risk-tiered **permissions** + **audit log** for tools.
+- Request bodies **pydantic-validated** with size caps; tool I/O byte-capped.
+- Structured logging **redacts** secret-looking keys; `gitleaks` in pre-commit.
+
+Deliberately skipped (documented, with reasoning): localhost auth/TLS/rate
+limiting, "AI guardrail" content filters, container isolation of tools.
 
 ## Development
 
@@ -169,10 +209,10 @@ tiny CPU model and gates on metric floors.
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the full six-phase plan. Next up (Phase 4): the
-tool-using agent loop with a permission model and sandboxing, plus a
-prompt-injection eval suite reporting attack-success-rate before and after
-mitigations.
+See [PLAN.md](PLAN.md) for the full six-phase plan. Next up (Phase 5): long-term
+memory across sessions (fact extraction, embedded recall, `watari memory`
+commands) with its own eval suite, plus observability polish (`/metrics`, span
+timing, latency figures into the README).
 
 ## License
 

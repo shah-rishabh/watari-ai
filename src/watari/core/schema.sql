@@ -23,3 +23,12 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_session
     ON messages(session_id, id);
+
+-- Local task/reminder list, exposed via the `tasks` agent tool. The
+-- "calendar-ish" capability without CalDAV scope creep.
+CREATE TABLE IF NOT EXISTS tasks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    done        INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL
+);
