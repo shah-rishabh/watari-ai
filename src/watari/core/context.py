@@ -30,20 +30,22 @@ def assemble_context(
     history: Sequence[ChatMessage],
     *,
     system_prompt: str | None = None,
+    context_block: str | None = None,
     max_context_tokens: int,
     reserved_response_tokens: int = 0,
 ) -> list[ChatMessage]:
     """Assemble the message list within a token budget.
 
-    The system prompt is always kept. History is included newest-first until the
-    remaining budget is exhausted, then re-ordered chronologically. If a single
-    most-recent message plus the system prompt still overflows, it is kept anyway
-    (the model server will truncate) so the user always gets a response.
+    The system prompt is always kept. An optional ``context_block`` (e.g. numbered
+    RAG chunks) is appended to the system message so retrieved context and its
+    citation instructions travel together. History is included newest-first until
+    the remaining budget is exhausted, then re-ordered chronologically. If a
+    single most-recent message plus the system prompt still overflows, it is kept
+    anyway (the model server will truncate) so the user always gets a response.
     """
-    system = ChatMessage(
-        role=Role.SYSTEM,
-        content=system_prompt if system_prompt is not None else load_system_prompt(),
-    )
+    base = system_prompt if system_prompt is not None else load_system_prompt()
+    content = f"{base}\n\n{context_block}" if context_block else base
+    system = ChatMessage(role=Role.SYSTEM, content=content)
 
     budget = max_context_tokens - reserved_response_tokens - _message_tokens(system)
 

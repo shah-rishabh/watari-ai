@@ -27,6 +27,7 @@ class CreateSessionResponse(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str
     message: str = Field(min_length=1, max_length=32_000)
+    use_rag: bool = Field(default=False, description="Retrieve from ingested docs.")
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
@@ -45,7 +46,9 @@ async def chat(req: ChatRequest, state: StateDep) -> EventSourceResponse:
     async def event_stream() -> AsyncIterator[dict[str, str]]:
         bind_contextvars(request_id=request_id, session_id=req.session_id)
         try:
-            async for delta in state.chat.stream_reply(req.session_id, req.message):
+            async for delta in state.chat.stream_reply(
+                req.session_id, req.message, use_rag=req.use_rag
+            ):
                 if delta.content:
                     yield {"event": "delta", "data": delta.content}
                 if delta.done:

@@ -20,3 +20,11 @@ def _encoding() -> tiktoken.Encoding:
 
 def count_tokens(text: str) -> int:
     return len(_encoding().encode(text))
+
+
+def encode(text: str) -> list[int]:
+    return _encoding().encode(text)
+
+
+def decode(token_ids: list[int]) -> str:
+    return _encoding().decode(token_ids)
