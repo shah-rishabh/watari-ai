@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+.ruff_cache
+.pytest_cache
+__pycache__
+*.pyc
+.env
+*.db
+.watari/
+eval-results/
+docs/demo/*.gif
+tests/

@@ -1,0 +1,43 @@
+# Reproducible demo: Watari + Ollama, both local.
+#
+#   docker compose up --build
+#   # one-time, pull the model into the ollama container:
+#   docker compose exec ollama ollama pull qwen3.5:4b
+#   # then open http://127.0.0.1:8000/docs
+#
+# The API is published on 127.0.0.1 only — it is single-user and unauthenticated
+# by design (see docs/threat-model.md).
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    # Not published to the host: only Watari needs to reach it.
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  watari:
+    build: .
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      WATARI_LLM_BASE_URL: http://ollama:11434/v1
+      WATARI_CHAT_MODEL: qwen3.5:4b
+      # Bind all interfaces *inside* the container; the port publish below keeps
+      # it host-local.
+      WATARI_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - watari-data:/home/watari/.watari
+
+volumes:
+  ollama-models:
+  watari-data:
