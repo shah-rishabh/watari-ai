@@ -6,7 +6,7 @@ Backlog of known gaps and follow-ups. Not yet scheduled.
 
 **High priority.** `watari chat` and `watari agent` are two front doors to what
 should be one product. The split is an artifact of build order, not design — chat
-landed early, the agent landed in Phase 4 (`f215c7c`) and got its own command
+landed early, the agent landed in Phase 4 (`57fe69f`) and got its own command
 rather than being folded into the thing that already existed. The result is a
 tool-using assistant whose primary surface can't use tools: ask `chat` to read a
 file and it will apologise; you have to quit, re-invoke as `watari agent "..."`,
@@ -543,7 +543,7 @@ off by default per `config.py:101`. What's missing is the search: `web_search()`
 returns a fixed "no backend is configured" string and never makes a request.
 `httpx` is already a dependency (`pyproject.toml:22`) but is unused here. The
 module docstring calls a real backend "a Phase-6 add" — Phase 6 has since landed
-(`cdc9b5d`) without it, so the deferral needs to be re-stated as a decision or
+(`a962d5c`) without it, so the deferral needs to be re-stated as a decision or
 closed out. Watari has **no network egress at all** today, which is a stronger
 guarantee than the docs currently claim and worth deciding deliberately.
 
