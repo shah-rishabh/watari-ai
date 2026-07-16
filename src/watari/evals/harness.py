@@ -15,6 +15,8 @@ from watari.config import Settings
 from watari.core.chat import ChatService
 from watari.core.llm import OpenAICompatibleProvider
 from watari.core.session import SessionStore
+from watari.evals.agent_eval import load_agent, run_agent_suite
+from watari.evals.injection import load_injection, run_injection_suite
 from watari.evals.metrics.judge import Judge
 from watari.evals.models import SuiteResult
 from watari.evals.runner import (
@@ -35,7 +37,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CORPORA_DIR = REPO_ROOT / "evals" / "corpora"
 DATASETS_DIR = REPO_ROOT / "evals" / "datasets"
 
-SUITES = ("retrieval", "rag-qa")
+SUITES = ("retrieval", "rag-qa", "agent", "injection")
+_RAG_SUITES = {"retrieval", "rag-qa"}
 
 
 async def run_suites(
@@ -46,7 +49,47 @@ async def run_suites(
     corpora_dir: Path = CORPORA_DIR,
     datasets_dir: Path = DATASETS_DIR,
 ) -> list[SuiteResult]:
-    """Run the named suites in an isolated, freshly-seeded eval store."""
+    """Run the named suites, each in isolation.
+
+    RAG suites share a temp store seeded from the corpus; agent and injection
+    suites self-isolate (fresh per-case data dirs / their own provider), so they
+    are dispatched separately and need no corpus.
+    """
+    results: list[SuiteResult] = []
+
+    rag_requested = [s for s in suites if s in _RAG_SUITES]
+    if rag_requested:
+        results.extend(
+            await _run_rag_suites(
+                rag_requested,
+                settings=settings,
+                smoke_only=smoke_only,
+                corpora_dir=corpora_dir,
+                datasets_dir=datasets_dir,
+            )
+        )
+
+    for suite in suites:
+        if suite == "agent":
+            cases = load_agent(datasets_dir / "agent_v1.jsonl", smoke_only=smoke_only)
+            results.append(await run_agent_suite(cases, settings=settings))
+        elif suite == "injection":
+            cases = load_injection(datasets_dir / "injection_v1.jsonl", smoke_only=smoke_only)
+            results.append(await run_injection_suite(cases, settings=settings))
+        elif suite not in _RAG_SUITES:
+            raise ValueError(f"unknown suite: {suite}")
+
+    return results
+
+
+async def _run_rag_suites(
+    suites: list[str],
+    *,
+    settings: Settings,
+    smoke_only: bool,
+    corpora_dir: Path,
+    datasets_dir: Path,
+) -> list[SuiteResult]:
     with tempfile.TemporaryDirectory(prefix="watari-evals-") as tmp:
         eval_settings = settings.model_copy(update={"data_dir": Path(tmp)})
 
@@ -87,8 +130,6 @@ async def run_suites(
                             eval_settings.chat_model,
                         )
                     )
-                else:
-                    raise ValueError(f"unknown suite: {suite}")
         finally:
             await provider.aclose()
             await session_store.close()

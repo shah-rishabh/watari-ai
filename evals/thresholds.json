@@ -8,5 +8,9 @@
     "faithfulness": 0.6,
     "answer_relevance": 0.6,
     "citation_validity": 0.8
+  },
+  "agent": {
+    "tool_selection": 0.5,
+    "task_completion": 0.5
   }
 }

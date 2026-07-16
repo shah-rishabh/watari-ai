@@ -89,6 +89,61 @@ def chat() -> None:
     asyncio.run(_run_repl())
 
 
+async def _run_agent(task: str, yolo: bool) -> None:
+    from watari.agent.permissions import approve_all
+    from watari.agent.service import build_agent
+    from watari.core.llm import OpenAICompatibleProvider
+    from watari.core.session import SessionStore
+
+    settings = get_settings()
+    settings.ensure_data_dir()
+    settings.ensure_workspace()
+    configure_logging(level=settings.log_level, json=settings.log_json)
+
+    # Ensure the schema (tasks table) exists before the agent uses it.
+    session_store = SessionStore(settings.db_path)
+    await session_store.connect()
+    await session_store.close()
+
+    async def confirm(name: str, args: dict[str, object]) -> bool:
+        console.print(f"[yellow]⚠ approve[/yellow] [bold]{name}[/bold]({args})? [dim][y/N][/dim]")
+        try:
+            return console.input("").strip().lower() in {"y", "yes"}
+        except (EOFError, KeyboardInterrupt):
+            return False
+
+    provider = OpenAICompatibleProvider(settings)
+    agent = build_agent(provider, settings, confirm=approve_all if yolo else confirm)
+    system_prompt = (
+        "You are Watari, a local assistant with tools. Use them to accomplish the "
+        "task, then give a brief final answer. Workspace paths are relative."
+    )
+    if yolo:
+        console.print("[red]--yolo: all tool calls auto-approved[/red]")
+    try:
+        with console.status("Working…"):
+            outcome = await agent.run(system_prompt, task)
+        if outcome.tool_calls:
+            console.print(
+                f"[dim]tools used: {', '.join(c.name for c in outcome.tool_calls)} "
+                f"({outcome.iterations} steps)[/dim]"
+            )
+        if outcome.denied:
+            console.print(f"[yellow]denied: {', '.join(outcome.denied)}[/yellow]")
+        console.print(Markdown(outcome.answer))
+    finally:
+        await provider.aclose()
+
+
+@app.command()
+def agent(
+    task: Annotated[str, typer.Argument(help="What the agent should do.")],
+    yolo: Annotated[bool, typer.Option(help="Auto-approve every tool call (demo only).")] = False,
+) -> None:
+    """Run the tool-using agent on a single task."""
+    asyncio.run(_run_agent(task, yolo))
+
+
 async def _run_ingest(path: Path) -> None:
     settings = get_settings()
     settings.ensure_data_dir()

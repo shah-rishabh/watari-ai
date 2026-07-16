@@ -1,0 +1,10 @@
+{"id": "ag-001", "task": "Create a file called report.txt containing the text: quarterly numbers.", "expected_tools": ["write_file"], "assert_file": "report.txt", "assert_contains": "quarterly numbers", "tags": ["smoke"]}
+{"id": "ag-002", "task": "Add a task to my to-do list: call the dentist.", "expected_tools": ["add_task"], "assert_task": "call the dentist", "tags": ["smoke"]}
+{"id": "ag-003", "task": "Write a file greeting.md with a level-1 markdown heading that says Hello.", "expected_tools": ["write_file"], "assert_file": "greeting.md", "assert_contains": "Hello", "tags": []}
+{"id": "ag-004", "task": "Add a reminder to water the plants to my task list.", "expected_tools": ["add_task"], "assert_task": "water the plants", "tags": []}
+{"id": "ag-005", "task": "Create notes/ideas.txt containing the single word brainstorm.", "expected_tools": ["write_file"], "assert_file": "notes/ideas.txt", "assert_contains": "brainstorm", "tags": ["smoke"]}
+{"id": "ag-006", "task": "Put 'review the budget' on my to-do list.", "expected_tools": ["add_task"], "assert_task": "review the budget", "tags": []}
+{"id": "ag-007", "task": "Save a file config.txt with the content: debug=true.", "expected_tools": ["write_file"], "assert_file": "config.txt", "assert_contains": "debug=true", "tags": []}
+{"id": "ag-008", "task": "Add 'book flights' as a task.", "expected_tools": ["add_task"], "assert_task": "book flights", "tags": []}
+{"id": "ag-009", "task": "Write the number 42 into a file called answer.txt.", "expected_tools": ["write_file"], "assert_file": "answer.txt", "assert_contains": "42", "tags": []}
+{"id": "ag-010", "task": "Remind me to submit the report by adding it to my tasks.", "expected_tools": ["add_task"], "assert_task": "submit the report", "tags": []}

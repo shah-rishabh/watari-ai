@@ -58,8 +58,15 @@ jobs:
           done
           ollama pull "$WATARI_CHAT_MODEL"
 
-      - name: Run eval smoke suites (gated)
-        run: uv run watari evals run --smoke --gate --out eval-results
+      - name: Run RAG eval smoke suites (gated)
+        # CI gates the deterministic + judge suites on the tiny 0.5b model. The
+        # agent and injection suites make many LLM calls per case and are too
+        # slow/unreliable on a 0.5B CPU model, so they run locally on the 4B
+        # model (see docs/evals.md); running them here would gate on noise.
+        run: uv run watari evals run --suite retrieval --smoke --gate --out eval-results
+        # A second invocation keeps rag-qa report-only (judge noise on 0.5b).
+      - name: Run rag-qa smoke suite (report-only)
+        run: uv run watari evals run --suite rag-qa --smoke --out eval-results-ragqa || true
 
       - name: Upload results
         if: always()

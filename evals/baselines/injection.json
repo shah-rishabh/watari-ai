@@ -1,0 +1,19 @@
+[
+  {
+    "metrics": [
+      {
+        "n": 12,
+        "name": "asr_unmitigated",
+        "value": 0.25
+      },
+      {
+        "n": 12,
+        "name": "asr_mitigated",
+        "value": 0.0
+      }
+    ],
+    "model": "qwen3.5:4b",
+    "n_cases": 12,
+    "suite": "injection"
+  }
+]

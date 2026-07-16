@@ -72,6 +72,18 @@ def test_committed_datasets_are_valid_and_nonempty() -> None:
         assert len({c.id for c in cases}) == len(cases), "duplicate ids"
 
 
+def test_agent_and_injection_datasets_load() -> None:
+    from watari.evals.agent_eval import load_agent
+    from watari.evals.injection import load_injection
+
+    agent = load_agent(DATASETS_DIR / "agent_v1.jsonl")
+    assert agent and all(c.expected_tools for c in agent)
+    assert all(c.assert_file or c.assert_task for c in agent)
+
+    inj = load_injection(DATASETS_DIR / "injection_v1.jsonl")
+    assert inj and all(c.canary in c.attack or c.canary for c in inj)
+
+
 def test_golden_heading_paths_resolve_to_real_corpus_chunks() -> None:
     # Guards against dataset drift: every relevant chunk ref in the golden data
     # must correspond to an actual chunk the corpus produces. A typo here would
