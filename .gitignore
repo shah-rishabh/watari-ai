@@ -20,3 +20,4 @@ build/
 # Editor
 .vscode/
 .idea/
+eval-results/

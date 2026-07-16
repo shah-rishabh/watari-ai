@@ -1,0 +1,51 @@
+[
+  {
+    "metrics": [
+      {
+        "n": 24,
+        "name": "recall@3",
+        "value": 0.9166666666666666
+      },
+      {
+        "n": 24,
+        "name": "recall@5",
+        "value": 0.9583333333333334
+      },
+      {
+        "n": 24,
+        "name": "recall@10",
+        "value": 1.0
+      },
+      {
+        "n": 24,
+        "name": "mrr",
+        "value": 0.9101190476190476
+      }
+    ],
+    "model": "qwen3.5:4b",
+    "n_cases": 24,
+    "suite": "retrieval"
+  },
+  {
+    "metrics": [
+      {
+        "n": 15,
+        "name": "faithfulness",
+        "value": 0.9809523809523809
+      },
+      {
+        "n": 15,
+        "name": "answer_relevance",
+        "value": 0.9333333333333333
+      },
+      {
+        "n": 15,
+        "name": "citation_validity",
+        "value": 1.0
+      }
+    ],
+    "model": "qwen3.5:4b",
+    "n_cases": 15,
+    "suite": "rag-qa"
+  }
+]

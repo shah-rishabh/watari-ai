@@ -18,6 +18,7 @@ from rich.panel import Panel
 
 from watari.api.deps import AppState, build_state, teardown_state
 from watari.config import get_settings
+from watari.evals.cli import app as evals_app
 from watari.obs.logging import configure_logging
 
 app = typer.Typer(
@@ -26,6 +27,7 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
+app.add_typer(evals_app, name="evals")
 console = Console()
 
 

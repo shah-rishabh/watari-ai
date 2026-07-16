@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -46,6 +47,11 @@ class RagStore:
         self._dim = settings.embed_dim
         self._rrf_k = settings.rrf_k
         self._conn: sqlite3.Connection | None = None
+        # A single SQLite connection is not safe for concurrent use, even with
+        # check_same_thread=False. Eval suites run cases concurrently via
+        # asyncio.to_thread, so all connection access is serialised through this
+        # lock. Contention is negligible for a single-user local store.
+        self._lock = threading.Lock()
 
     @property
     def _db(self) -> sqlite3.Connection:
@@ -84,10 +90,11 @@ class RagStore:
 
     def needs_ingest(self, source_path: str, content_hash: str) -> bool:
         """True if this file is new or its content changed since last ingest."""
-        row = self._db.execute(
-            "SELECT content_hash FROM documents WHERE source_path = ?",
-            (source_path,),
-        ).fetchone()
+        with self._lock:
+            row = self._db.execute(
+                "SELECT content_hash FROM documents WHERE source_path = ?",
+                (source_path,),
+            ).fetchone()
         return row is None or row["content_hash"] != content_hash
 
     def upsert_document(
@@ -102,6 +109,16 @@ class RagStore:
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings length mismatch")
 
+        with self._lock:
+            return self._upsert_document_locked(source_path, content_hash, chunks, embeddings)
+
+    def _upsert_document_locked(
+        self,
+        source_path: str,
+        content_hash: str,
+        chunks: list[Chunk],
+        embeddings: list[list[float]],
+    ) -> int:
         db = self._db
         # Remove any prior version of this document (cascades to chunks; FTS/vec
         # rows are cleaned explicitly below since they aren't FK-linked).
@@ -156,9 +173,10 @@ class RagStore:
         db.execute("DELETE FROM documents WHERE id = ?", (document_id,))
 
     def stats(self) -> dict[str, int]:
-        db = self._db
-        docs = db.execute("SELECT COUNT(*) AS n FROM documents").fetchone()["n"]
-        chunks = db.execute("SELECT COUNT(*) AS n FROM chunks").fetchone()["n"]
+        with self._lock:
+            db = self._db
+            docs = db.execute("SELECT COUNT(*) AS n FROM documents").fetchone()["n"]
+            chunks = db.execute("SELECT COUNT(*) AS n FROM chunks").fetchone()["n"]
         return {"documents": int(docs), "chunks": int(chunks)}
 
     # --- Search ----------------------------------------------------------
@@ -184,6 +202,12 @@ class RagStore:
         self, query: str, query_embedding: list[float], *, top_k: int
     ) -> list[RetrievedChunk]:
         """Fuse vector KNN and BM25 rankings with RRF, return top_k chunks."""
+        with self._lock:
+            return self._hybrid_search_locked(query, query_embedding, top_k)
+
+    def _hybrid_search_locked(
+        self, query: str, query_embedding: list[float], top_k: int
+    ) -> list[RetrievedChunk]:
         # Over-fetch from each arm so the fusion has candidates to work with.
         pool = max(top_k * 4, 20)
         vec_ids = self._vector_ranking(query_embedding, pool)
