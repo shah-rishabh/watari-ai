@@ -32,3 +32,18 @@ CREATE TABLE IF NOT EXISTS tasks (
     done        INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL
 );
+
+-- Long-term memory: atomic facts extracted about the user, embedded for
+-- similarity retrieval. `active` supports supersede-on-dedup (an updated fact
+-- deactivates the old one, keeping an audit trail rather than deleting).
+CREATE TABLE IF NOT EXISTS memories (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    fact        TEXT NOT NULL,
+    category    TEXT NOT NULL DEFAULT 'other',
+    active      INTEGER NOT NULL DEFAULT 1,
+    source      TEXT,
+    created_at  TEXT NOT NULL,
+    superseded_by INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(active);

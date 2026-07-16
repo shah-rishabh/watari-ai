@@ -7,6 +7,18 @@ from watari.config import Settings
 from watari.core.chat import ChatService
 from watari.core.models import Role
 from watari.core.session import SessionStore
+from watari.memory.models import Category, RecalledMemory
+
+
+class FakeRecaller:
+    def __init__(self, facts: list[str]) -> None:
+        self._facts = facts
+
+    async def recall(self, query: str) -> list[RecalledMemory]:
+        return [
+            RecalledMemory(id=i, fact=f, category=Category.OTHER, score=0.9)
+            for i, f in enumerate(self._facts, start=1)
+        ]
 
 
 async def test_stream_reply_persists_both_turns(
@@ -103,3 +115,24 @@ async def test_rag_off_by_default_does_not_retrieve(
     _ = [d async for d in service.stream_reply(session_id, "q")]  # use_rag defaults False
     sent = provider.calls[0]
     assert "doc1.md" not in sent[0].content
+
+
+async def test_memory_facts_injected_into_context(store: SessionStore, settings: Settings) -> None:
+    provider = FakeProvider(reply="ok")
+    recaller = FakeRecaller(["The user is allergic to peanuts."])
+    service = ChatService(provider, store, settings, memory=recaller)
+    session_id = await store.create_session()
+
+    _ = [d async for d in service.stream_reply(session_id, "what should I avoid?")]
+    system_content = provider.calls[0][0].content
+    assert "allergic to peanuts" in system_content
+
+
+async def test_memory_can_be_disabled_per_turn(store: SessionStore, settings: Settings) -> None:
+    provider = FakeProvider(reply="ok")
+    recaller = FakeRecaller(["The user likes tea."])
+    service = ChatService(provider, store, settings, memory=recaller)
+    session_id = await store.create_session()
+
+    _ = [d async for d in service.stream_reply(session_id, "q", use_memory=False)]
+    assert "tea" not in provider.calls[0][0].content

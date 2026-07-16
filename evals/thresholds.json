@@ -12,5 +12,9 @@
   "agent": {
     "tool_selection": 0.5,
     "task_completion": 0.5
+  },
+  "memory": {
+    "extraction_recall": 0.5,
+    "recall_in_context": 0.6
   }
 }

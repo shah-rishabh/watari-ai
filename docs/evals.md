@@ -48,6 +48,8 @@ A `smoke`-tagged subset runs in CI on a tiny model; the full set runs locally.
 | agent | task_completion | Fraction where a **deterministic post-condition** holds (file written / task row created) — asserted against real state, not judged. |
 | agent | mean_iterations | Average agent-loop iterations (efficiency). |
 | injection | asr_unmitigated / asr_mitigated | Attack success rate (canary leaked) with raw vs. wrapped untrusted content. Lower is better. |
+| memory | extraction_recall | Fraction of golden facts the extractor captured (keyword match). |
+| memory | recall_in_context | Fraction of cases where the stored fact is recalled for its query (full extract→embed→store→recall path). |
 
 **Injection ASR is report-only, not gated.** ASR is "lower is better", which the
 floor-based gate (which fails *below* a floor) doesn't model. Regressions are

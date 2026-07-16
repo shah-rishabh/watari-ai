@@ -17,6 +17,7 @@ from watari.core.llm import OpenAICompatibleProvider
 from watari.core.session import SessionStore
 from watari.evals.agent_eval import load_agent, run_agent_suite
 from watari.evals.injection import load_injection, run_injection_suite
+from watari.evals.memory_eval import load_memory, run_memory_suite
 from watari.evals.metrics.judge import Judge
 from watari.evals.models import SuiteResult
 from watari.evals.runner import (
@@ -37,7 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CORPORA_DIR = REPO_ROOT / "evals" / "corpora"
 DATASETS_DIR = REPO_ROOT / "evals" / "datasets"
 
-SUITES = ("retrieval", "rag-qa", "agent", "injection")
+SUITES = ("retrieval", "rag-qa", "agent", "injection", "memory")
 _RAG_SUITES = {"retrieval", "rag-qa"}
 
 
@@ -76,6 +77,9 @@ async def run_suites(
         elif suite == "injection":
             cases = load_injection(datasets_dir / "injection_v1.jsonl", smoke_only=smoke_only)
             results.append(await run_injection_suite(cases, settings=settings))
+        elif suite == "memory":
+            mem_cases = load_memory(datasets_dir / "memory_v1.jsonl", smoke_only=smoke_only)
+            results.append(await run_memory_suite(mem_cases, settings=settings))
         elif suite not in _RAG_SUITES:
             raise ValueError(f"unknown suite: {suite}")
 
